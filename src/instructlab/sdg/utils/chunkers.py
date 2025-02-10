@@ -211,19 +211,38 @@ class DocumentChunker:  # pylint: disable=too-many-instance-attributes
         """
         fused_texts: List[str] = []
         last_token_count = 0
-    
-        for text in text_list:
-            token_count = self.get_token_count(text, self.tokenizer)
-            # If it's the first iteration, or the previous block is too long,
-            # and the current text is too long, start a new block.
-            if not fused_texts or (last_token_count > short_length_threshold and token_count > short_length_threshold):
+    	next_token_count = None
+
+        for i,text in enumerate(text_list):
+            if next_token_count is not None:
+                token_count = next_token_count
+            else:
+                token_count = self.get_token_count(text, self.tokenizer)
+            if i + 1 < len(text_list):
+                next_token_count = self.get_token_count(text_list[i+1], self.tokenizer)
+            else:
+                next_token_count = None
+                
+            # Start new block 
+            # - it's the first iteration, 
+            # - or the previous block is too long and the current text is also long, start a new block
+            # - or there is a next text and the last block was "long" and the sum of the current and next token counts exceeds the threshold,
+            if (
+                not fused_texts 
+                or (last_token_count > short_length_threshold and token_count > short_length_threshold)
+                or (
+                    next_token_count is not None
+                    and last_token_count > short_length_threshold
+                    and (token_count + next_token_count) > short_length_threshold
+                )
+            ):
                 fused_texts.append(text)
                 last_token_count = token_count
             else:
                 # Otherwise, fuse the current text with the last block.
                 fused_texts[-1] += "\n\n" + text
                 last_token_count += token_count
-                
+
         return fused_texts
 
     @staticmethod
