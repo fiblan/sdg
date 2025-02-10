@@ -210,21 +210,20 @@ class DocumentChunker:  # pylint: disable=too-many-instance-attributes
             list: List of fused texts.
         """
         fused_texts: List[str] = []
-        previous_long_text = ""
-
+        last_token_count = 0
+    
         for text in text_list:
-            token_count = self.get_token_count(
-                text, self.tokenizer
-            )  # Use tokenizer for token count
-
-            if token_count <= short_length_threshold and previous_long_text:
-                # Append the short text to the last long text
-                fused_texts[-1] += "\n\n" + text
-            else:
-                # This is a long text, so add it to the list and remember it
+            token_count = self.get_token_count(text, self.tokenizer)
+            # If it's the first iteration, or the previous block is too long,
+            # or the current text is too long, start a new block.
+            if not fused_texts or last_token_count > short_length_threshold or token_count > short_length_threshold:
                 fused_texts.append(text)
-                previous_long_text = text
-
+                last_token_count = token_count
+            else:
+                # Otherwise, fuse the current text with the last block.
+                fused_texts[-1] += "\n\n" + text
+                last_token_count += token_count
+                
         return fused_texts
 
     @staticmethod
